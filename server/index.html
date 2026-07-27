@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>红外测速系统 - 实时监控</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-title {
+            font-size: 1.2em;
+            color: #667eea;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .speed-display {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .speed-value {
+            font-size: 4em;
+            font-weight: bold;
+            color: #667eea;
+            line-height: 1;
+        }
+
+        .speed-unit {
+            font-size: 1.5em;
+            color: #888;
+            margin-top: 10px;
+        }
+
+        .speed-secondary {
+            font-size: 1.2em;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+            animation: pulse 2s infinite;
+        }
+
+        .status-online {
+            background: #4CAF50;
+        }
+
+        .status-offline {
+            background: #f44336;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: #666;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .chart-container {
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .history-table th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .history-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .history-table tr:hover {
+            background: #f5f5f5;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #999;
+            padding: 40px;
+            font-size: 1.1em;
+        }
+
+        .refresh-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background 0.3s ease;
+        }
+
+        .refresh-btn:hover {
+            background: #5568d3;
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 30px;
+            opacity: 0.8;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #999;
+        }
+
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .chart-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 280px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 红外测速系统</h1>
+            <p>实时监控 · 数据可视化</p>
+        </div>
+
+        <div class="dashboard">
+            <!-- 当前速度 -->
+            <div class="card">
+                <div class="card-title">
+                    <span class="status-indicator" id="statusIndicator"></span>
+                    当前速度
+                </div>
+                <div class="speed-display" id="currentSpeed">
+                    <div class="no-data">等待数据...</div>
+                </div>
+            </div>
+
+            <!-- 统计信息 -->
+            <div class="card">
+                <div class="card-title">统计信息</div>
+                <div id="statistics">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        加载中...
+                    </div>
+                </div>
+            </div>
+
+            <!-- 系统信息 -->
+            <div class="card">
+                <div class="card-title">系统信息</div>
+                <div class="stat-item">
+                    <span class="stat-label">传感器间距</span>
+                    <span class="stat-value">100 mm</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">测量精度</span>
+                    <span class="stat-value">±5%</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">响应时间</span>
+                    <span class="stat-value">&lt;10 ms</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">数据更新</span>
+                    <span class="stat-value" id="lastUpdate">--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 速度趋势图 -->
+        <div class="chart-card">
+            <div class="card-title">速度趋势图</div>
+            <div class="chart-wrapper">
+                <canvas id="speedChart"></canvas>
+            </div>
+        </div>
+
+        <!-- 历史记录 -->
+        <div class="card">
+            <div class="card-title">
+                历史记录
+                <button class="refresh-btn" onclick="loadHistory()" style="float: right;">刷新</button>
+            </div>
+            <div id="historyContainer">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    加载中...
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>红外测速系统 v1.0 | STM32F103C8T6 + ESP8266</p>
+            <p>© 2026 高鑫 | 物联网测速项目</p>
+        </div>
+    </div>
+
+    <script>
+        // API基础URL
+        const API_BASE = '';
+
+        // 初始化折线图
+        let speedChart = null;
+
+        function initChart() {
+            const ctx = document.getElementById('speedChart').getContext('2d');
+            speedChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '速度 (km/h)',
+                        data: [],
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: '#667eea',
+                        pointRadius: 4,
+                        pointHoverRadius: 6,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `${ctx.parsed.y.toFixed(2)} km/h`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: {
+                                maxTicksLimit: 8,
+                                maxRotation: 30
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'km/h'
+                            }
+                        }
+                    },
+                    animation: { duration: 300 }
+                }
+            });
+        }
+
+        function updateChart(historyData) {
+            if (!speedChart || !historyData || historyData.length === 0) return;
+
+            // 按时间正向排列（最旧在左）
+            const sorted = historyData.slice().sort((a, b) =>
+                new Date(a.timestamp) - new Date(b.timestamp)
+            );
+
+            speedChart.data.labels = sorted.map(d => {
+                // 只显示时分秒
+                return d.timestamp ? d.timestamp.split(' ')[1] || d.timestamp : '';
+            });
+            speedChart.data.datasets[0].data = sorted.map(d => d.speed_kmh);
+            speedChart.update();
+        }
+
+        // 更新当前速度
+        async function updateCurrentSpeed() {
+            try {
+                const response = await fetch(`${API_BASE}/api/current`);
+                const data = await response.json();
+
+                const container = document.getElementById('currentSpeed');
+                const indicator = document.getElementById('statusIndicator');
+
+                if (data) {
+                    container.innerHTML = `
+                        <div class="speed-value">${data.speed_kmh.toFixed(2)}</div>
+                        <div class="speed-unit">km/h</div>
+                        <div class="speed-secondary">${data.speed_ms.toFixed(2)} m/s</div>
+                        <div class="speed-secondary" style="font-size: 0.9em; margin-top: 15px;">
+                            通过时间: ${data.time_us} μs
+                        </div>
+                    `;
+                    indicator.className = 'status-indicator status-online';
+                    document.getElementById('lastUpdate').textContent = data.timestamp;
+                } else {
+                    container.innerHTML = '<div class="no-data">等待数据...</div>';
+                    indicator.className = 'status-indicator status-offline';
+                }
+            } catch (error) {
+                console.error('获取当前速度失败:', error);
+                document.getElementById('statusIndicator').className = 'status-indicator status-offline';
+            }
+        }
+
+        // 更新统计信息
+        async function updateStatistics() {
+            try {
+                const response = await fetch(`${API_BASE}/api/statistics`);
+                const data = await response.json();
+
+                const container = document.getElementById('statistics');
+
+                if (data) {
+                    container.innerHTML = `
+                        <div class="stat-item">
+                            <span class="stat-label">测量次数</span>
+                            <span class="stat-value">${data.count}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">最高速度</span>
+                            <span class="stat-value">${data.max.toFixed(2)} km/h</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">最低速度</span>
+                            <span class="stat-value">${data.min.toFixed(2)} km/h</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">平均速度</span>
+                            <span class="stat-value">${data.avg.toFixed(2)} km/h</span>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = '<div class="no-data">暂无数据</div>';
+                }
+            } catch (error) {
+                console.error('获取统计信息失败:', error);
+                document.getElementById('statistics').innerHTML = '<div class="no-data">加载失败</div>';
+            }
+        }
+
+        // 加载历史记录
+        async function loadHistory() {
+            try {
+                const response = await fetch(`${API_BASE}/api/history?count=20`);
+                const data = await response.json();
+
+                // 更新图表
+                updateChart(data);
+
+                const container = document.getElementById('historyContainer');
+
+                if (data && data.length > 0) {
+                    let tableHTML = `
+                        <table class="history-table">
+                            <thead>
+                                <tr>
+                                    <th>时间</th>
+                                    <th>速度 (km/h)</th>
+                                    <th>速度 (m/s)</th>
+                                    <th>通过时间 (μs)</th>
+                                    <th>来源</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+
+                    // 反向显示（最新的在前）
+                    for (let i = data.length - 1; i >= 0; i--) {
+                        const item = data[i];
+                        tableHTML += `
+                            <tr>
+                                <td>${item.timestamp}</td>
+                                <td><strong>${item.speed_kmh.toFixed(2)}</strong></td>
+                                <td>${item.speed_ms.toFixed(2)}</td>
+                                <td>${item.time_us}</td>
+                                <td>${item.source || 'N/A'}</td>
+                            </tr>
+                        `;
+                    }
+
+                    tableHTML += `
+                            </tbody>
+                        </table>
+                    `;
+
+                    container.innerHTML = tableHTML;
+                } else {
+                    container.innerHTML = '<div class="no-data">暂无历史记录</div>';
+                }
+            } catch (error) {
+                console.error('加载历史记录失败:', error);
+                document.getElementById('historyContainer').innerHTML = '<div class="no-data">加载失败</div>';
+            }
+        }
+
+        // 初始化
+        function init() {
+            initChart();
+            updateCurrentSpeed();
+            updateStatistics();
+            loadHistory();
+
+            // 定时更新（每2秒）
+            setInterval(() => {
+                updateCurrentSpeed();
+                updateStatistics();
+            }, 2000);
+
+            // 定时刷新历史记录（每10秒）
+            setInterval(() => {
+                loadHistory();
+            }, 10000);
+        }
+
+        // 页面加载完成后初始化
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

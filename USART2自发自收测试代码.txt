@@ -1,0 +1,85 @@
+/* USART2自发自收测试程序
+ *
+ * 测试目的：验证STM32的USART2硬件和中断是否正常工作
+ *
+ * 测试方法：
+ * 1. 用一根杜邦线将STM32的PA2和PA3短接
+ * 2. 下载此测试程序
+ * 3. 观察串口输出
+ *
+ * 期望结果：
+ * - 如果USART2正常，应该能收到自己发送的数据
+ * - 串口会输出："[TEST] Received: AT"
+ *
+ * 如果测试失败：
+ * - 说明USART2硬件或配置有问题
+ *
+ * 如果测试成功：
+ * - 说明USART2正常，问题在ESP8266连接上
+ */
+
+// 在main.c的USER CODE BEGIN 2部分添加以下测试代码：
+
+#ifdef USE_ESP8266
+  /* ========== USART2自发自收测试 ========== */
+  sprintf(uart_buf, "\r\n=== USART2 Self-Test ===\r\n");
+  HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+  sprintf(uart_buf, "Please short PA2 and PA3 with a jumper wire\r\n");
+  HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+  sprintf(uart_buf, "Starting test in 3 seconds...\r\n\r\n");
+  HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+  HAL_Delay(3000);
+
+  /* 启动UART2接收中断 */
+  HAL_UART_Receive_IT(&huart2, &uart2_rx_byte, 1);
+
+  /* 清空ESP8266接收缓冲区 */
+  memset(g_esp8266.rx_buffer, 0, ESP8266_RX_BUF_SIZE);
+  g_esp8266.rx_index = 0;
+
+  /* 发送测试数据 */
+  sprintf(uart_buf, "[TEST] Sending: AT\\r\\n");
+  HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+  HAL_UART_Transmit(&huart2, (uint8_t*)"AT\r\n", 4, 1000);
+
+  /* 等待接收 */
+  HAL_Delay(500);
+
+  /* 检查是否收到数据 */
+  if (g_esp8266.rx_index > 0)
+  {
+    sprintf(uart_buf, "[TEST] SUCCESS! Received %d bytes: [%s]\r\n",
+            g_esp8266.rx_index, g_esp8266.rx_buffer);
+    HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+    sprintf(uart_buf, "[TEST] USART2 is working correctly!\r\n");
+    HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+  }
+  else
+  {
+    sprintf(uart_buf, "[TEST] FAILED! No data received\r\n");
+    HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+    sprintf(uart_buf, "[TEST] Possible issues:\r\n");
+    HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+    sprintf(uart_buf, "  - PA2/PA3 not shorted\r\n");
+    HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+    sprintf(uart_buf, "  - USART2 interrupt not working\r\n");
+    HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+    sprintf(uart_buf, "  - RX callback not called\r\n");
+    HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+  }
+
+  sprintf(uart_buf, "\r\n=== Test Complete ===\r\n\r\n");
+  HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+  /* 测试完成后，继续正常的ESP8266初始化 */
+  #endif
+
+  /* 下面是原来的ESP8266初始化代码 */

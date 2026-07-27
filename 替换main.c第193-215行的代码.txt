@@ -1,0 +1,41 @@
+/* 将main.c的第193-215行替换为以下代码 */
+
+  /* 检查是否收到数据 */
+  if (g_esp8266.rx_index > 0)
+  {
+    sprintf(uart_buf, "[TEST] SUCCESS! Received %d bytes: [%s]\r\n",
+            g_esp8266.rx_index, g_esp8266.rx_buffer);
+    HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+    sprintf(uart_buf, "[TEST] USART2 is working correctly!\r\n");
+    HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+    /* OLED显示测试成功 */
+    OLED_Clear();
+    OLED_ShowString(0, 0, "ESP8266 Test", OLED_FONT_8X16);
+    OLED_ShowString(0, 20, "SUCCESS!", OLED_FONT_8X16);
+    sprintf(uart_buf, "RX: %d bytes", g_esp8266.rx_index);
+    OLED_ShowString(0, 40, uart_buf, OLED_FONT_6X8);
+    OLED_Refresh();
+  }
+  else
+  {
+    sprintf(uart_buf, "[TEST] FAILED! No data received\r\n");
+    HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+    sprintf(uart_buf, "[TEST] Possible issues:\r\n");
+    HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+    sprintf(uart_buf, "  - PA2/PA3 not shorted\r\n");
+    HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+    sprintf(uart_buf, "  - USART2 interrupt not working\r\n");
+    HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+    /* OLED显示测试失败 */
+    OLED_Clear();
+    OLED_ShowString(0, 0, "ESP8266 Test", OLED_FONT_8X16);
+    OLED_ShowString(0, 20, "FAILED!", OLED_FONT_8X16);
+    OLED_ShowString(0, 40, "No data RX", OLED_FONT_6X8);
+    OLED_Refresh();
+  }

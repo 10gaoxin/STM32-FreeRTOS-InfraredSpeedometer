@@ -1,0 +1,35 @@
+# Keil MDK build output
+*.o
+*.d
+*.axf
+*.hex
+*.bin
+*.map
+*.lst
+*.crf
+*.dep
+*.htm
+*.lnp
+*.sct
+*.tra
+*.build_log.htm
+
+# Keil project temp
+RTE/
+Listings/
+Objects/
+DebugConfig/
+
+# MDK-ARM build folders
+MDK-ARM/**/Objects/
+MDK-ARM/**/Listings/
+MDK-ARM/**/*.uvguix.*
+
+# OS generated
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+*.bak

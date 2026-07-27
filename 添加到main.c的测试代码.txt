@@ -1,0 +1,66 @@
+// 在main.c的第163行（"/* 初始化ESP8266 (可�??) */"）之后添加以下代码
+// 替换原来的第165-166行
+
+#ifdef USE_ESP8266
+
+  /* ========== USART2自发自收测试 ========== */
+  sprintf(uart_buf, "\r\n=== USART2 Self-Test ===\r\n");
+  HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+  sprintf(uart_buf, "Please short PA2 and PA3 with a jumper wire\r\n");
+  HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+  sprintf(uart_buf, "Starting test in 3 seconds...\r\n\r\n");
+  HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+  HAL_Delay(3000);
+
+  /* 启动UART2接收中断 */
+  HAL_UART_Receive_IT(&huart2, &uart2_rx_byte, 1);
+
+  /* 清空ESP8266接收缓冲区 */
+  extern ESP8266_t g_esp8266;
+  memset(g_esp8266.rx_buffer, 0, ESP8266_RX_BUF_SIZE);
+  g_esp8266.rx_index = 0;
+
+  /* 发送测试数据 */
+  sprintf(uart_buf, "[TEST] Sending: AT\r\n");
+  HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+  HAL_UART_Transmit(&huart2, (uint8_t*)"AT\r\n", 4, 1000);
+
+  /* 等待接收 */
+  HAL_Delay(500);
+
+  /* 检查是否收到数据 */
+  if (g_esp8266.rx_index > 0)
+  {
+    sprintf(uart_buf, "[TEST] SUCCESS! Received %d bytes: [%s]\r\n",
+            g_esp8266.rx_index, g_esp8266.rx_buffer);
+    HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+    sprintf(uart_buf, "[TEST] USART2 is working correctly!\r\n");
+    HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+  }
+  else
+  {
+    sprintf(uart_buf, "[TEST] FAILED! No data received\r\n");
+    HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+    sprintf(uart_buf, "[TEST] Possible issues:\r\n");
+    HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+    sprintf(uart_buf, "  - PA2/PA3 not shorted\r\n");
+    HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+    sprintf(uart_buf, "  - USART2 interrupt not working\r\n");
+    HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+  }
+
+  sprintf(uart_buf, "\r\n=== Test Complete ===\r\n\r\n");
+  HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+  /* ========== 下面是正常的ESP8266初始化 ========== */
+  sprintf(uart_buf, "Initializing ESP8266...\r\n");
+  HAL_UART_Transmit(&huart1, (uint8_t*)uart_buf, strlen(uart_buf), 100);
+
+  // 继续原来的ESP8266_Init()代码...
